@@ -719,6 +719,7 @@ name = "victory-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "same-file",
  "serde",
  "tempfile",
  "thiserror",
