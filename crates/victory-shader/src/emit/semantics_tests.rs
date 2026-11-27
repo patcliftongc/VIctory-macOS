@@ -891,6 +891,17 @@ fn mad(a: u32, b: u32, c: u32) -> u32 {
     add(mul(a, b), c)
 }
 
+/// RDNA 2 V_FMAC_LEGACY_F32 / V_FMA_LEGACY_F32: a zero factor gives a
+/// +0 product under DX9 rules. Other products are fused with the addend.
+fn fma_legacy(a: u32, b: u32, c: u32) -> u32 {
+    if ftz(a) & 0x7fff_ffff == 0 || ftz(b) & 0x7fff_ffff == 0 {
+        add(0, c)
+    } else {
+        fma(a, b, c)
+    }
+}
+
+/// The unfused host alternative for the FMA defect probes.
 fn mad_legacy(a: u32, b: u32, c: u32) -> u32 {
     add(mul_legacy(a, b), c)
 }
@@ -1195,10 +1206,10 @@ fn arithmetic_probes() -> Vec<Probe> {
         // v_fmac_f32, v_mac_f32 and v_mac_legacy_f32 accumulate into v5 = c.
         accumulate(0x2B, fma, mad),
         accumulate(0x1F, mad, mad),
-        accumulate(0x06, mad_legacy, mad_legacy),
+        accumulate(0x06, fma_legacy, mad_legacy),
         vop3_f3(0x14B, NONE, fma, mad, abc.clone(), fused),
         vop3_f3(0x141, NONE, mad, mad, abc.clone(), fused),
-        vop3_f3(0x140, NONE, mad_legacy, mad_legacy, abc, fused),
+        vop3_f3(0x140, NONE, fma_legacy, mad_legacy, abc, fused),
     ];
     let small = pairs(F32_EDGES, &F32_EDGES[..16]);
     let abc_small = triples(&F32_EDGES[..16], &F32_EDGES[..16], F32_THIRD);
@@ -1256,7 +1267,7 @@ fn arithmetic_probes() -> Vec<Probe> {
         p.push(vop3_f3(
             0x140,
             m,
-            mad_legacy,
+            fma_legacy,
             mad_legacy,
             abc_small.clone(),
             tolerant(1, m),
